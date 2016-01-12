@@ -76,7 +76,6 @@ let sig_of_tds ~loc:_ ~path:_ (_rec_flag, tds) =
     let loc = td.ptype_loc in
     psig_value ~loc (value_description ~loc ~name:(Located.mk ~loc name)
                        ~type_:enumeration_type ~prim:[]))
-  |> Type_conv.Generator_result.make_just_after
 
 let gen_symbol = gen_symbol ~prefix:"enumerate"
 
@@ -296,8 +295,7 @@ let () =
     ~str_type_decl:(Type_conv.Generator.make Type_conv.Args.empty
                       (fun ~loc ~path:_ (_rec, tds) ->
                          match tds with
-                         | [td] ->
-                           Type_conv.Generator_result.make_just_after (enum_of_td td)
+                         | [td] -> enum_of_td td
                          | _ -> Location.raise_errorf ~loc
                                   "only one type at a time is support by ppx_enumerate"))
     ~sig_type_decl:(Type_conv.Generator.make Type_conv.Args.empty sig_of_tds)
