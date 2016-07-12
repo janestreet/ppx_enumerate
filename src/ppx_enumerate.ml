@@ -226,10 +226,12 @@ and variant_case loc row_field ~main_type =
 
 and constructor_case loc cd =
   match cd.pcd_args with
-  | [] -> [%expr [ [%e econstruct cd None ] ] ]
-  | tps ->
+  | Pcstr_tuple [] -> [%expr [ [%e econstruct cd None ] ] ]
+  | Pcstr_tuple tps ->
     product loc tps (fun x ->
       econstruct cd (Some (pexp_tuple ~loc x)))
+  | Pcstr_record _ ->
+    failwith "Pcstr_record not supported"
 
 and product loc tps f =
     let all = List.map tps ~f:(fun tp -> enum ~main_type:tp tp) in
