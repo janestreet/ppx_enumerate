@@ -108,6 +108,9 @@ let%test _ = all_of_q = [None; Some None; Some (Some `A); Some (Some (`B A));
 type 'tt tt = [`G of 'tt | x] [@@deriving enumerate]
 let%test _ = all_of_tt [()] = [`G (); `A; `B A; `B B]
 
+type ir = A of { foo : i } | B [@@deriving enumerate]
+let%test _ = all_of_ir = [A { foo = M}; A { foo = N }; B]
+
 (* Tricky case where the scoping of type variable prevents generalization. If the
    constraints looked like (... :> [ a tt | `F ]) (instead of the same thing with s/a/'a/)
    where there is a fun (type a) somewhere in scope it would work, but it is simpler to

@@ -230,8 +230,20 @@ and constructor_case loc cd =
   | Pcstr_tuple tps ->
     product loc tps (fun x ->
       econstruct cd (Some (pexp_tuple ~loc x)))
-  | Pcstr_record _ ->
-    failwith "Pcstr_record not supported"
+  | Pcstr_record lds -> enum_of_lab_decs ~loc lds ~k:(fun x -> econstruct cd (Some x))
+
+and enum_of_lab_decs ~loc lds ~k =
+  let field_names, types =
+    List.split @@
+    List.map lds ~f:(fun ld -> (ld.pld_name, ld.pld_type))
+  in
+  product loc types (function l ->
+    let fields =
+      List.map2 field_names l ~f:(fun field_name x ->
+        (Located.map lident field_name, x))
+    in
+    k (pexp_record ~loc fields None)
+  )
 
 and product loc tps f =
     let all = List.map tps ~f:(fun tp -> enum ~main_type:tp tp) in
@@ -256,18 +268,7 @@ let enum_of_td td =
          different order of [gen_symbol] calls *)
       List.fold_left cds ~init:[%expr []] ~f:(fun acc cd ->
         list_append loc acc (constructor_case loc cd))
-    | Ptype_record lds ->
-      let field_names, types =
-        List.split @@
-        List.map lds ~f:(fun ld -> (ld.pld_name, ld.pld_type))
-      in
-      product loc types (function l ->
-        let fields =
-          List.map2 field_names l ~f:(fun field_name x ->
-            (Located.map lident field_name, x))
-        in
-        pexp_record ~loc fields None
-      )
+    | Ptype_record lds -> enum_of_lab_decs ~loc lds ~k:(fun x -> x)
     | Ptype_open ->
       Location.raise_errorf ~loc "ppx_enumerate: open types not supported"
     | Ptype_abstract ->
