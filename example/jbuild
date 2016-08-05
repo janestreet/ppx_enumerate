@@ -1,0 +1,5 @@
+(library
+ ((name enumerate_sample)))
+
+(alias ((name DEFAULT)
+        (deps (test.ml.pp))))
