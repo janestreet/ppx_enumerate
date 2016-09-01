@@ -173,12 +173,6 @@ let cartesian_product_map l's ~f loc =
         [%e acc]
       ])
 
-let enum_val_of_id loc (id : Longident.t) : Longident.t Located.t =
-  match id with
-  | Lident n    -> { loc; txt = Lident  (name_of_type_name n) }
-  | Ldot (p, n) -> { loc; txt = Ldot (p, name_of_type_name n) }
-  | Lapply _    -> assert false
-
 (* Here we do two things: simplify append on static lists, to make the generated code more
    readable and rewrite (List.append (List.append a b) c) as (List.append a (List.append b
    c)), to avoid a quadratic behaviour with long nesting to the left. *)
@@ -204,8 +198,8 @@ let rec enum ~main_type ty =
            )
     ]
   | Ptyp_constr (id, args) ->
-    let all = enum_val_of_id loc id.txt in
-    eapply ~loc (pexp_ident ~loc all) (List.map args ~f:(fun t -> enum t ~main_type:t))
+    type_constr_conv ~loc id ~f:name_of_type_name
+      (List.map args ~f:(fun t -> enum t ~main_type:t))
   | Ptyp_tuple tps -> product loc tps (fun exprs -> tuple loc exprs)
   | Ptyp_variant (row_fields, Closed, None) ->
     List.fold_left row_fields ~init:[%expr []] ~f:(fun acc rf ->
