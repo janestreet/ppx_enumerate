@@ -1,7 +1,6 @@
 (library
  ((name ppx_enumerate)
   (public_name ppx_enumerate)
-  (public_release ((kind ppx_type_conv_plugin)))
-  (wrapped false)
-  (libraries (ocamlcommon ppx_core ppx_type_conv))
-  (preprocess ((metaquot All)))))
+  (kind ppx_type_conv_plugin)
+  (libraries (compiler-libs.common ppx_core ppx_type_conv))
+  (preprocess metaquot)))
