@@ -1,10 +1,6 @@
-open StdLabels
-open Ppx_core.Std
-open Parsetree
+open Ppx_core
 open Ast_builder.Default
 open Ppx_type_conv.Std
-
-[@@@metaloc loc]
 
 module List = struct
   include List
@@ -142,7 +138,7 @@ let cartesian_product_map l's ~f loc =
         in
         case ~guard:None ~lhs:(patt_tuple loc patts)
           ~rhs:(apply [%expr loop ([%e f (List.map hd_vars ~f:lid)] :: acc)]
-                  (evar ~loc tl_var :: List.map (List.tl args_vars) ~f:lid))
+                  (evar ~loc tl_var :: List.map (List.tl_exn args_vars) ~f:lid))
       in
       let decrement_cases =
         List.init (len - 1) ~f:(fun i ->
@@ -167,7 +163,7 @@ let cartesian_product_map l's ~f loc =
         [%e apply [%expr loop []] (List.map ~f:lid alias_vars)]
       ]
     in
-    List.fold_right2 alias_vars l's ~init ~f:(fun alias_var input_list acc ->
+    Caml.ListLabels.fold_right2 alias_vars l's ~init ~f:(fun alias_var input_list acc ->
       [%expr
         let [%p pvar ~loc alias_var] = [%e input_list] in
         [%e acc]
@@ -204,7 +200,7 @@ let rec enum ~main_type ty =
   | Ptyp_variant (row_fields, Closed, None) ->
     List.fold_left row_fields ~init:[%expr []] ~f:(fun acc rf ->
       list_append loc acc (variant_case loc rf ~main_type))
-  | Ptyp_var id -> evar ~loc @@ name_of_type_variable id
+  | Ptyp_var id -> evar ~loc (name_of_type_variable id)
   | _ -> Location.raise_errorf ~loc "ppx_enumerate: unsupported type"
 
 and variant_case loc row_field ~main_type =
@@ -228,12 +224,12 @@ and constructor_case loc cd =
 
 and enum_of_lab_decs ~loc lds ~k =
   let field_names, types =
-    List.split @@
-    List.map lds ~f:(fun ld -> (ld.pld_name, ld.pld_type))
+    List.unzip (
+      List.map lds ~f:(fun ld -> (ld.pld_name, ld.pld_type)))
   in
   product loc types (function l ->
     let fields =
-      List.map2 field_names l ~f:(fun field_name x ->
+      List.map2_exn field_names l ~f:(fun field_name x ->
         (Located.map lident field_name, x))
     in
     k (pexp_record ~loc fields None)
