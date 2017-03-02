@@ -1,5 +1,6 @@
 (library
- ((name enumerate_sample)))
+ ((name enumerate_sample)
+(preprocess (pps (ppx_jane)))))
 
 (alias ((name DEFAULT)
         (deps (test.ml.pp))))
