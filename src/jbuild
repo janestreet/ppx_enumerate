@@ -1,8 +1,8 @@
 (library
  ((name ppx_enumerate)
   (public_name ppx_enumerate)
-  (kind ppx_type_conv_plugin)
+  (kind ppx_deriver)
   (libraries (ppx_core ppx_type_conv))
-  (preprocess (pps (ppx_metaquot)))))
+  (preprocess (pps (ppx_metaquot ppx_driver.runner)))))
 
 (jbuild_version jane_street)

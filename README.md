@@ -1,3 +1,8 @@
+---
+title: ppx_enumerate
+parent: ../README.md
+---
+
 Generate a list containing all values of a finite type.
 
 `ppx_enumerate` is a ppx rewriter which generates a definition for the
