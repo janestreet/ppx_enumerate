@@ -283,7 +283,7 @@ let enum_of_td td =
   then [%str let [%p pvar ~loc name] = ([%e body] : [%t enumeration_type]) ]
   else [%str let [%p pvar ~loc name] : [%t enumeration_type] = [%e body] ]
 
-let () =
+let enumerate =
   Type_conv.add "enumerate"
     ~str_type_decl:(Type_conv.Generator.make Type_conv.Args.empty
                       (fun ~loc ~path:_ (_rec, tds) ->
@@ -292,8 +292,8 @@ let () =
                          | _ -> Location.raise_errorf ~loc
                                   "only one type at a time is support by ppx_enumerate"))
     ~sig_type_decl:(Type_conv.Generator.make Type_conv.Args.empty sig_of_tds)
-  |> Type_conv.ignore;
+
+let () =
   Type_conv.add "all"
     ~extension:(fun ~loc:_ ~path:_ ty -> enum ty ~main_type:ty)
   |> Type_conv.ignore
-;;
