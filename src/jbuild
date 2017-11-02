@@ -2,6 +2,7 @@
  ((name ppx_enumerate)
   (public_name ppx_enumerate)
   (kind ppx_deriver)
+  (flags (:standard -safe-string))
   (libraries (ppx_core ppx_type_conv))
   (preprocess (pps (ppx_metaquot ppx_driver.runner)))))
 

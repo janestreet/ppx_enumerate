@@ -1,6 +1,7 @@
 (library
  ((name enumerate_sample)
-(preprocess (pps (ppx_jane ppx_driver.runner)))))
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_jane ppx_driver.runner)))))
 
 (alias ((name DEFAULT)
         (deps (test.ml.pp))))
