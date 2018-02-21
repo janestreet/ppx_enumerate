@@ -243,7 +243,7 @@ let quantify loc tps typ =
   match tps with
   | [] -> typ
   | _  ->
-    ptyp_poly ~loc (List.map tps ~f:(fun x -> (get_type_param_name x).txt)) typ
+    ptyp_poly ~loc (List.map tps ~f:(fun x -> (get_type_param_name x))) typ
 
 let enum_of_td td =
   let loc = td.ptype_loc in
