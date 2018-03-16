@@ -1,6 +1,6 @@
-open Ppx_core
+open Base
+open Ppxlib
 open Ast_builder.Default
-open Ppx_type_conv.Std
 
 module List = struct
   include List
@@ -284,16 +284,16 @@ let enum_of_td td =
   else [%str let [%p pvar ~loc name] : [%t enumeration_type] = [%e body] ]
 
 let enumerate =
-  Type_conv.add "enumerate"
-    ~str_type_decl:(Type_conv.Generator.make Type_conv.Args.empty
+  Deriving.add "enumerate"
+    ~str_type_decl:(Deriving.Generator.make Deriving.Args.empty
                       (fun ~loc ~path:_ (_rec, tds) ->
                          match tds with
                          | [td] -> enum_of_td td
                          | _ -> Location.raise_errorf ~loc
                                   "only one type at a time is support by ppx_enumerate"))
-    ~sig_type_decl:(Type_conv.Generator.make Type_conv.Args.empty sig_of_tds)
+    ~sig_type_decl:(Deriving.Generator.make Deriving.Args.empty sig_of_tds)
 
 let () =
-  Type_conv.add "all"
+  Deriving.add "all"
     ~extension:(fun ~loc:_ ~path:_ ty -> enum ty ~main_type:ty)
-  |> Type_conv.ignore
+  |> Deriving.ignore

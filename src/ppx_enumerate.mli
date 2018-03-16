@@ -1,3 +1,3 @@
-open Ppx_type_conv.Std
+open Ppxlib
 
-val enumerate : Type_conv.t
+val enumerate : Deriving.t
