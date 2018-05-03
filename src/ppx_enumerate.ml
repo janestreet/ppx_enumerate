@@ -205,9 +205,9 @@ let rec enum ~main_type ty =
 
 and variant_case loc row_field ~main_type =
   match row_field with
-  | Rtag (cnstr, _attrs, true, _) | Rtag (cnstr, _attrs, _, []) ->
+  | Rtag ({ txt = cnstr; _ }, _attrs, true, _) | Rtag ({ txt = cnstr; _ }, _attrs, _, []) ->
     [%expr [ [%e pexp_variant ~loc cnstr None] ] ]
-  | Rtag (cnstr, _attrs, false, tp :: _) ->
+  | Rtag ({ txt = cnstr; _ }, _attrs, false, tp :: _) ->
     list_map loc (enum tp ~main_type:tp) ~f:(fun e ->
       pexp_variant ~loc cnstr (Some e))
   | Rinherit ty ->
