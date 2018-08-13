@@ -99,7 +99,7 @@ let list_map loc l ~f =
   let applied = f (evar ~loc element) in
   [%expr
     let rec map l acc = match l with
-      | [] -> List.rev acc
+      | [] -> Ppx_enumerate_lib.List.rev acc
       | [%p pvar ~loc element] :: l ->
         map l ([%e applied] ::acc)
     in
@@ -127,7 +127,7 @@ let cartesian_product_map l's ~f loc =
         let patts =
           List.rev ([%pat? []] :: List.init (len - 1) ~f:(fun _ -> [%pat? _]))
         in
-        case ~guard:None ~lhs:(patt_tuple loc patts) ~rhs:[%expr List.rev acc]
+        case ~guard:None ~lhs:(patt_tuple loc patts) ~rhs:[%expr Ppx_enumerate_lib.List.rev acc]
       in
       let apply_case =
         let patts = List.mapi hd_vars ~f:(fun i x ->
@@ -179,9 +179,9 @@ let rec list_append loc l1 l2 =
     match l1 with
     | [%expr [] ] -> l2
     | [%expr [%e? hd] :: [%e? tl] ] -> [%expr [%e hd] :: [%e list_append loc tl l2] ]
-    | [%expr List.append [%e? ll] [%e? lr] ] -> list_append loc ll (list_append loc lr l2)
+    | [%expr Ppx_enumerate_lib.List.append [%e? ll] [%e? lr] ] -> list_append loc ll (list_append loc lr l2)
     | _ ->
-      [%expr  List.append [%e l1] [%e l2] ]
+      [%expr  Ppx_enumerate_lib.List.append [%e l1] [%e l2] ]
 
 let rec enum ~main_type ty =
   let loc = ty.ptyp_loc in
