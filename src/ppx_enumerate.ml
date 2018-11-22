@@ -110,7 +110,7 @@ let list_map loc l ~f =
    returns code generating the Cartesian product of those lists, with [f] applied to each
    tuple.
 *)
-let cartesian_product_map l's ~f loc =
+let cartesian_product_map ~exhaust_check l's ~f loc =
   match l's with
   | [] -> Location.raise_errorf ~loc "cartesian_product_map passed list of zero length"
   | [l] -> list_map loc l ~f:(fun x -> f [x])
@@ -152,13 +152,33 @@ let cartesian_product_map l's ~f loc =
                      @ evar ~loc tl_var ::
                        (List.map ~f:lid (List.drop args_vars (i + 2))))))
       in
+      let decrement_cases =
+        if exhaust_check then
+          decrement_cases
+        else
+          decrement_cases @ [
+            case ~guard:None ~lhs:(ppat_any ~loc) ~rhs:[%expr assert false ]
+          ]
+      in
+      let match_exp =
+        pexp_match ~loc (tuple loc (List.map args_vars ~f:lid))
+           (base_case :: apply_case :: decrement_cases)
+      in
+      let match_exp =
+        if exhaust_check then
+          match_exp
+        else
+          let loc = Location.none in
+          { match_exp with
+            pexp_attributes = [
+              Location.{ txt = "ocaml.warning"; loc },
+              PStr [ pstr_eval ~loc (estring ~loc "-11") [] ]
+            ]
+          }
+      in
       [%expr
         let rec loop acc =
-          [%e
-            eabstract ~loc (List.map args_vars ~f:patt_lid)
-              (pexp_match ~loc (tuple loc (List.map args_vars ~f:lid))
-                 (base_case :: apply_case :: decrement_cases))
-          ]
+          [%e eabstract ~loc (List.map args_vars ~f:patt_lid) match_exp]
         in
         [%e apply [%expr loop []] (List.map ~f:lid alias_vars)]
       ]
@@ -183,51 +203,52 @@ let rec list_append loc l1 l2 =
     | _ ->
       [%expr  Ppx_enumerate_lib.List.append [%e l1] [%e l2] ]
 
-let rec enum ~main_type ty =
+let rec enum ~exhaust_check ~main_type ty =
   let loc = ty.ptyp_loc in
   match ty.ptyp_desc with
   | Ptyp_constr ({ txt = Lident "bool"; _ }, []) -> [%expr [false; true] ]
   | Ptyp_constr ({ txt = Lident "unit"; _ }, []) -> [%expr  [()] ]
   | Ptyp_constr ({ txt = Lident "option"; _ }, [tp]) ->
-    [%expr (None :: [%e list_map loc (enum ~main_type:tp tp)
+    [%expr (None :: [%e list_map loc (enum ~exhaust_check ~main_type:tp tp)
                           ~f:(fun e -> [%expr Some [%e e]])]
            )
     ]
   | Ptyp_constr (id, args) ->
     type_constr_conv ~loc id ~f:name_of_type_name
-      (List.map args ~f:(fun t -> enum t ~main_type:t))
-  | Ptyp_tuple tps -> product loc tps (fun exprs -> tuple loc exprs)
+      (List.map args ~f:(fun t -> enum ~exhaust_check t ~main_type:t))
+  | Ptyp_tuple tps -> product ~exhaust_check loc tps (fun exprs -> tuple loc exprs)
   | Ptyp_variant (row_fields, Closed, None) ->
     List.fold_left row_fields ~init:[%expr []] ~f:(fun acc rf ->
-      list_append loc acc (variant_case loc rf ~main_type))
+      list_append loc acc (variant_case ~exhaust_check loc rf ~main_type))
   | Ptyp_var id -> evar ~loc (name_of_type_variable id)
   | _ -> Location.raise_errorf ~loc "ppx_enumerate: unsupported type"
 
-and variant_case loc row_field ~main_type =
+and variant_case ~exhaust_check loc row_field ~main_type =
   match row_field with
   | Rtag ({ txt = cnstr; _ }, _attrs, true, _) | Rtag ({ txt = cnstr; _ }, _attrs, _, []) ->
     [%expr [ [%e pexp_variant ~loc cnstr None] ] ]
   | Rtag ({ txt = cnstr; _ }, _attrs, false, tp :: _) ->
-    list_map loc (enum tp ~main_type:tp) ~f:(fun e ->
+    list_map loc (enum ~exhaust_check tp ~main_type:tp) ~f:(fun e ->
       pexp_variant ~loc cnstr (Some e))
   | Rinherit ty ->
-    let e = enum ~main_type ty in
+    let e = enum ~exhaust_check ~main_type ty in
     [%expr ([%e e] :> [%t replace_variables_by_underscores main_type] list) ]
 
-and constructor_case loc cd =
+and constructor_case ~exhaust_check loc cd =
   match cd.pcd_args with
   | Pcstr_tuple [] -> [%expr [ [%e econstruct cd None ] ] ]
   | Pcstr_tuple tps ->
-    product loc tps (fun x ->
+    product ~exhaust_check loc tps (fun x ->
       econstruct cd (Some (pexp_tuple ~loc x)))
-  | Pcstr_record lds -> enum_of_lab_decs ~loc lds ~k:(fun x -> econstruct cd (Some x))
+  | Pcstr_record lds ->
+    enum_of_lab_decs ~exhaust_check ~loc lds ~k:(fun x -> econstruct cd (Some x))
 
-and enum_of_lab_decs ~loc lds ~k =
+and enum_of_lab_decs ~exhaust_check ~loc lds ~k =
   let field_names, types =
     List.unzip (
       List.map lds ~f:(fun ld -> (ld.pld_name, ld.pld_type)))
   in
-  product loc types (function l ->
+  product ~exhaust_check loc types (function l ->
     let fields =
       List.map2_exn field_names l ~f:(fun field_name x ->
         (Located.map lident field_name, x))
@@ -235,9 +256,9 @@ and enum_of_lab_decs ~loc lds ~k =
     k (pexp_record ~loc fields None)
   )
 
-and product loc tps f =
-    let all = List.map tps ~f:(fun tp -> enum ~main_type:tp tp) in
-    cartesian_product_map all loc ~f
+and product ~exhaust_check loc tps f =
+    let all = List.map tps ~f:(fun tp -> enum ~exhaust_check ~main_type:tp tp) in
+    cartesian_product_map ~exhaust_check all loc ~f
 
 let quantify loc tps typ =
   match tps with
@@ -245,7 +266,7 @@ let quantify loc tps typ =
   | _  ->
     ptyp_poly ~loc (List.map tps ~f:(fun x -> (get_type_param_name x))) typ
 
-let enum_of_td td =
+let enum_of_td ~exhaust_check td =
   let loc = td.ptype_loc in
   let all =
     let main_type =
@@ -257,14 +278,14 @@ let enum_of_td td =
       (* Process [cd] elements in same order as camlp4 to avoid code-gen diffs caused by
          different order of [gen_symbol] calls *)
       List.fold_left cds ~init:[%expr []] ~f:(fun acc cd ->
-        list_append loc acc (constructor_case loc cd))
-    | Ptype_record lds -> enum_of_lab_decs ~loc lds ~k:(fun x -> x)
+        list_append loc acc (constructor_case ~exhaust_check loc cd))
+    | Ptype_record lds -> enum_of_lab_decs ~exhaust_check ~loc lds ~k:(fun x -> x)
     | Ptype_open ->
       Location.raise_errorf ~loc "ppx_enumerate: open types not supported"
     | Ptype_abstract ->
       match td.ptype_manifest with
       | None -> [%expr [] ]
-      | Some tp -> enum tp ~main_type
+      | Some tp -> enum ~exhaust_check tp ~main_type
   in
   let name = name_of_type_name td.ptype_name.txt in
   let args = List.map td.ptype_params ~f:(fun ((tp, _) as x) ->
@@ -283,17 +304,20 @@ let enum_of_td td =
   then [%str let [%p pvar ~loc name] = ([%e body] : [%t enumeration_type]) ]
   else [%str let [%p pvar ~loc name] : [%t enumeration_type] = [%e body] ]
 
+
 let enumerate =
+  let str_args = Deriving.Args.(empty +> flag "no_exhaustiveness_check") in
   Deriving.add "enumerate"
-    ~str_type_decl:(Deriving.Generator.make Deriving.Args.empty
-                      (fun ~loc ~path:_ (_rec, tds) ->
+    ~str_type_decl:(Deriving.Generator.make str_args
+                      (fun ~loc ~path:_ (_rec, tds) no_exhaustiveness_check ->
                          match tds with
-                         | [td] -> enum_of_td td
+                         | [td] ->
+                           enum_of_td ~exhaust_check:(not no_exhaustiveness_check) td
                          | _ -> Location.raise_errorf ~loc
                                   "only one type at a time is support by ppx_enumerate"))
     ~sig_type_decl:(Deriving.Generator.make Deriving.Args.empty sig_of_tds)
 
 let () =
   Deriving.add "all"
-    ~extension:(fun ~loc:_ ~path:_ ty -> enum ty ~main_type:ty)
+    ~extension:(fun ~loc:_ ~path:_ ty -> enum ~exhaust_check:true ty ~main_type:ty)
   |> Deriving.ignore

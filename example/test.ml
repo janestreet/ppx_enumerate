@@ -150,3 +150,39 @@ module Check_sigs_with_params_and_variance = struct
     let module M : S1 = M in
     ()
 end
+
+(* if you remove the "~no_exhaustiveness_check" flag to enumerate, the compilation time
+   will noticeably spike. *)
+type big_record = {
+   field1: t;
+   field2: t;
+   field3: t;
+   field4: t;
+   field5: s;
+   field6: s;
+   field7: t;
+   field8: t;
+   field9: t;
+   fielda: t;
+   fieldb: t;
+   fieldc: t;
+   fieldd: t;
+   fielde: t;
+   fieldf: t;
+   fieldg: u;
+   fieldh: t;
+   fieldi: t;
+   fieldj: t;
+   fieldk: t;
+   fieldl: t;
+   (* (* just keep adding fields to make things worse. *)
+   fieldm: t;
+   fieldn: t;
+   fieldo: s;
+   fieldp: t;
+   fieldq: s;
+   fieldr: s;
+   fields: u;
+   *)
+ } [@@deriving enumerate ~no_exhaustiveness_check]
+
