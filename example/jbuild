@@ -1,9 +1,0 @@
-(library
- ((name enumerate_sample)
-(preprocess (pps (ppx_jane ppxlib.runner)))))
-
-(alias ((name DEFAULT)
-        (deps (test.ml.pp))))
-
-
-(jbuild_version 1)
