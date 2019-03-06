@@ -186,3 +186,13 @@ type big_record = {
    *)
  } [@@deriving enumerate ~no_exhaustiveness_check]
 
+module Wildcard : sig
+  type _ transparent = A | B of bool [@@deriving enumerate]
+  type _ opaque [@@deriving enumerate]
+end = struct
+  type _ transparent = A | B of bool [@@deriving enumerate]
+  let%test _ = all_of_transparent all_of_x = [A; B false; B true]
+
+  type 'a opaque = 'a option [@@deriving enumerate]
+  let%test _ = all_of_opaque all_of_x = [None; Some `A; Some (`B A); Some (`B B)]
+end

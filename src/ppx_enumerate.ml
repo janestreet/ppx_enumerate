@@ -67,6 +67,7 @@ let enumeration_type_of_td td =
 
 let sig_of_tds ~loc:_ ~path:_ (_rec_flag, tds) =
   List.map tds ~f:(fun td ->
+    let td = name_type_params_in_td td in
     let enumeration_type = enumeration_type_of_td td in
     let name = name_of_type_name td.ptype_name.txt in
     let loc = td.ptype_loc in
@@ -267,6 +268,7 @@ let quantify loc tps typ =
     ptyp_poly ~loc (List.map tps ~f:(fun x -> (get_type_param_name x))) typ
 
 let enum_of_td ~exhaust_check td =
+  let td = name_type_params_in_td td in
   let loc = td.ptype_loc in
   let all =
     let main_type =
