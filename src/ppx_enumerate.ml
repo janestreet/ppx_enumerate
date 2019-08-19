@@ -172,8 +172,10 @@ let cartesian_product_map ~exhaust_check l's ~f loc =
           let loc = Location.none in
           { match_exp with
             pexp_attributes = [
-              Location.{ txt = "ocaml.warning"; loc },
-              PStr [ pstr_eval ~loc (estring ~loc "-11") [] ]
+              attribute
+                ~loc
+                ~name:(Location.{ txt = "ocaml.warning"; loc })
+                ~payload:(PStr [ pstr_eval ~loc (estring ~loc "-11") [] ])
             ]
           }
       in
@@ -225,10 +227,10 @@ let rec enum ~exhaust_check ~main_type ty =
   | _ -> Location.raise_errorf ~loc "ppx_enumerate: unsupported type"
 
 and variant_case ~exhaust_check loc row_field ~main_type =
-  match row_field with
-  | Rtag ({ txt = cnstr; _ }, _attrs, true, _) | Rtag ({ txt = cnstr; _ }, _attrs, _, []) ->
+  match row_field.prf_desc with
+  | Rtag ({ txt = cnstr; _ }, true, _) | Rtag ({ txt = cnstr; _ }, _, []) ->
     [%expr [ [%e pexp_variant ~loc cnstr None] ] ]
-  | Rtag ({ txt = cnstr; _ }, _attrs, false, tp :: _) ->
+  | Rtag ({ txt = cnstr; _ }, false, tp :: _) ->
     list_map loc (enum ~exhaust_check tp ~main_type:tp) ~f:(fun e ->
       pexp_variant ~loc cnstr (Some e))
   | Rinherit ty ->
