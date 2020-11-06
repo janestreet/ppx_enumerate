@@ -20,18 +20,18 @@ module List = struct
   ;;
 
   let split_n t_orig n =
-  if n <= 0 then
-    ([], t_orig)
-  else
-    let rec loop n t accum =
-      if n = 0 then
-        (List.rev accum, t)
-      else
-        match t with
-        | [] -> (t_orig, []) (* in this case, t_orig = List.rev accum *)
-        | hd :: tl -> loop (n - 1) tl (hd :: accum)
-    in
-    loop n t_orig []
+    if n <= 0 then
+      ([], t_orig)
+    else
+      let rec loop n t accum =
+        if n = 0 then
+          (List.rev accum, t)
+        else
+          match t with
+          | [] -> (t_orig, []) (* in this case, t_orig = List.rev accum *)
+          | hd :: tl -> loop (n - 1) tl (hd :: accum)
+      in
+      loop n t_orig []
 
   let take t n = fst (split_n t n)
   let drop t n = snd (split_n t n)
@@ -133,9 +133,9 @@ let cartesian_product_map ~exhaust_check l's ~f loc =
       let apply_case =
         let patts = List.mapi hd_vars ~f:(fun i x ->
           [%pat? ([%p pvar ~loc x] :: [%p if i = 0 then
-                                            patt_lid tl_var
-                                          else
-                                            ppat_any ~loc])])
+                      patt_lid tl_var
+                    else
+                      ppat_any ~loc])])
         in
         case ~guard:None ~lhs:(patt_tuple loc patts)
           ~rhs:(apply [%expr loop ([%e f (List.map hd_vars ~f:lid)] :: acc)]
@@ -163,7 +163,7 @@ let cartesian_product_map ~exhaust_check l's ~f loc =
       in
       let match_exp =
         pexp_match ~loc (tuple loc (List.map args_vars ~f:lid))
-           (base_case :: apply_case :: decrement_cases)
+          (base_case :: apply_case :: decrement_cases)
       in
       let match_exp =
         if exhaust_check then
@@ -260,8 +260,8 @@ and enum_of_lab_decs ~exhaust_check ~loc lds ~k =
   )
 
 and product ~exhaust_check loc tps f =
-    let all = List.map tps ~f:(fun tp -> enum ~exhaust_check ~main_type:tp tp) in
-    cartesian_product_map ~exhaust_check all loc ~f
+  let all = List.map tps ~f:(fun tp -> enum ~exhaust_check ~main_type:tp tp) in
+  cartesian_product_map ~exhaust_check all loc ~f
 
 let quantify loc tps typ =
   match tps with
