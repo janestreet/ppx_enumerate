@@ -2,50 +2,6 @@ open Base
 open Ppxlib
 open Ast_builder.Default
 
-module List = struct
-  include List
-
-  (* All functions copied from core_list.ml (except for [invalid_argf], which is copied
-     from core_printf.ml. *)
-  let invalid_argf fmt = Printf.ksprintf (fun s () -> invalid_arg s) fmt
-
-  let init n ~f =
-    if n < 0 then invalid_argf "List.init %d" n ();
-    let rec loop i accum =
-      assert (i >= 0);
-      if i = 0 then accum
-      else loop (i-1) (f (i-1) :: accum)
-    in
-    loop n []
-  ;;
-
-  let split_n t_orig n =
-    if n <= 0 then
-      ([], t_orig)
-    else
-      let rec loop n t accum =
-        if n = 0 then
-          (List.rev accum, t)
-        else
-          match t with
-          | [] -> (t_orig, []) (* in this case, t_orig = List.rev accum *)
-          | hd :: tl -> loop (n - 1) tl (hd :: accum)
-      in
-      loop n t_orig []
-
-  let take t n = fst (split_n t n)
-  let drop t n = snd (split_n t n)
-
-  let rev_mapi l ~f =
-    let rec loop i acc = function
-      | [] -> acc
-      | h :: t -> loop (i + 1) (f i h :: acc) t
-    in
-    loop 0 [] l
-
-  let mapi l ~f = List.rev (rev_mapi l ~f)
-end
-
 let name_of_type_name = function
   | "t" -> "all"
   | type_name -> "all_of_" ^ type_name
