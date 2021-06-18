@@ -142,7 +142,7 @@ let cartesian_product_map ~exhaust_check l's ~f loc =
         [%e apply [%expr loop []] (List.map ~f:lid alias_vars)]
       ]
     in
-    Caml.ListLabels.fold_right2 alias_vars l's ~init ~f:(fun alias_var input_list acc ->
+    Stdlib.ListLabels.fold_right2 alias_vars l's ~init ~f:(fun alias_var input_list acc ->
       [%expr
         let [%p pvar ~loc alias_var] = [%e input_list] in
         [%e acc]
