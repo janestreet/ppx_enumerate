@@ -131,7 +131,7 @@ module Check_sigs = struct
 
   let _ = fun (module M : S1) ->
     let module M : S2 = M in
-    let module M : S1 = M in
+    let module _ : S1 = M in
     ()
 end
 
@@ -147,7 +147,7 @@ module Check_sigs_with_params_and_variance = struct
 
   let _ = fun (module M : S1) ->
     let module M : S2 = M in
-    let module M : S1 = M in
+    let module _ : S1 = M in
     ()
 end
 
