@@ -21,14 +21,21 @@ let enumeration_type_of_td td =
       [%type: [%t tp] list -> [%t acc] ])
 ;;
 
-let sig_of_tds ~loc:_ ~path:_ (_rec_flag, tds) =
-  List.map tds ~f:(fun td ->
-    let td = name_type_params_in_td td in
-    let enumeration_type = enumeration_type_of_td td in
-    let name = name_of_type_name td.ptype_name.txt in
-    let loc = td.ptype_loc in
-    psig_value ~loc (value_description ~loc ~name:(Located.mk ~loc name)
-                       ~type_:enumeration_type ~prim:[]))
+let sig_of_td td =
+  let td = name_type_params_in_td td in
+  let enumeration_type = enumeration_type_of_td td in
+  let name = name_of_type_name td.ptype_name.txt in
+  let loc = td.ptype_loc in
+  psig_value ~loc (value_description ~loc ~name:(Located.mk ~loc name)
+                     ~type_:enumeration_type ~prim:[])
+
+let sig_of_tds ~loc ~path:_ (_rec_flag, tds) =
+  let sg_name = "Ppx_enumerate_lib.Enumerable.S" in
+  match
+    mk_named_sig tds ~loc ~sg_name ~handle_polymorphic_variant:true
+  with
+  | Some include_infos -> [ psig_include ~loc include_infos ]
+  | None -> List.map tds ~f:sig_of_td
 
 let gen_symbol = gen_symbol ~prefix:"enumerate"
 

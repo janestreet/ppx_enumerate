@@ -121,7 +121,14 @@ type +'a variance = 'a [@@deriving enumerate]
 
 module Check_sigs = struct
   module type S1 = sig
-    type t = A | B [@@deriving enumerate]
+    type t = A | B [@@deriving_inline enumerate]
+
+    include
+      sig
+        [@@@ocaml.warning "-32"]
+        include Ppx_enumerate_lib.Enumerable.S with type  t :=  t
+      end[@@ocaml.doc "@inline"]
+    [@@@end]
   end
 
   module type S2 = sig
@@ -187,10 +194,25 @@ type big_record = {
 } [@@deriving enumerate ~no_exhaustiveness_check]
 
 module Wildcard : sig
-  type _ transparent = A | B of bool [@@deriving enumerate]
-  type _ opaque [@@deriving enumerate]
+  type 'a transparent = A | B of bool [@@deriving_inline enumerate]
+
+
+  include
+    sig
+      [@@@ocaml.warning "-32"]
+      val all_of_transparent : 'a list -> 'a transparent list
+    end[@@ocaml.doc "@inline"]
+  [@@@end]
+  type 'a opaque [@@deriving_inline enumerate]
+
+
+  include
+    sig [@@@ocaml.warning "-32"] val all_of_opaque : 'a list -> 'a opaque list
+    end[@@ocaml.doc "@inline"]
+  [@@@end]
 end = struct
   type _ transparent = A | B of bool [@@deriving enumerate]
+
   let%test _ = all_of_transparent all_of_x = [A; B false; B true]
 
   type 'a opaque = 'a option [@@deriving enumerate]
