@@ -1,2 +1,4 @@
-(library (name ppx_enumerate_lib) (public_name ppx_enumerate.runtime-lib)
+(library
+ (name ppx_enumerate_lib)
+ (public_name ppx_enumerate.runtime-lib)
  (preprocess no_preprocessing))
