@@ -52,6 +52,11 @@ let patt_tuple loc pats =
 
 let apply e el = eapply ~loc:e.pexp_loc e el
 
+let labeled_tuple loc ltps exprs =
+  let ltuple = List.map2_exn ~f:(fun (lbl, _) exp -> lbl, exp) ltps exprs in
+  Ppxlib_jane.Jane_syntax.Expression.expr_of ~loc ~attrs:[] (Jexp_tuple ltuple)
+;;
+
 let replace_variables_by_underscores =
   let map =
     object
@@ -190,27 +195,32 @@ let rec list_append loc l1 l2 =
 
 let rec enum ~exhaust_check ~main_type ty =
   let loc = { ty.ptyp_loc with loc_ghost = true } in
-  match ty.ptyp_desc with
-  | Ptyp_constr ({ txt = Lident "bool"; _ }, []) -> [%expr [ false; true ]]
-  | Ptyp_constr ({ txt = Lident "unit"; _ }, []) -> [%expr [ () ]]
-  | Ptyp_constr ({ txt = Lident "option"; _ }, [ tp ]) ->
-    [%expr
-      None
-      :: [%e
-           list_map loc (enum ~exhaust_check ~main_type:tp tp) ~f:(fun e ->
-             [%expr Some [%e e]])]]
-  | Ptyp_constr (id, args) ->
-    type_constr_conv
-      ~loc
-      id
-      ~f:name_of_type_name
-      (List.map args ~f:(fun t -> enum ~exhaust_check t ~main_type:t))
-  | Ptyp_tuple tps -> product ~exhaust_check loc tps (fun exprs -> tuple loc exprs)
-  | Ptyp_variant (row_fields, Closed, None) ->
-    List.fold_left row_fields ~init:[%expr []] ~f:(fun acc rf ->
-      list_append loc acc (variant_case ~exhaust_check loc rf ~main_type))
-  | Ptyp_var id -> evar ~loc (name_of_type_variable id)
-  | _ -> Location.raise_errorf ~loc "ppx_enumerate: unsupported type"
+  match Ppxlib_jane.Jane_syntax.Core_type.of_ast ty with
+  | Some (Jtyp_tuple ltps, _attrs) ->
+    product ~exhaust_check loc (List.map ~f:snd ltps) (fun exprs ->
+      labeled_tuple loc ltps exprs)
+  | Some (Jtyp_layout _, _) | None ->
+    (match ty.ptyp_desc with
+     | Ptyp_constr ({ txt = Lident "bool"; _ }, []) -> [%expr [ false; true ]]
+     | Ptyp_constr ({ txt = Lident "unit"; _ }, []) -> [%expr [ () ]]
+     | Ptyp_constr ({ txt = Lident "option"; _ }, [ tp ]) ->
+       [%expr
+         None
+         :: [%e
+              list_map loc (enum ~exhaust_check ~main_type:tp tp) ~f:(fun e ->
+                [%expr Some [%e e]])]]
+     | Ptyp_constr (id, args) ->
+       type_constr_conv
+         ~loc
+         id
+         ~f:name_of_type_name
+         (List.map args ~f:(fun t -> enum ~exhaust_check t ~main_type:t))
+     | Ptyp_tuple tps -> product ~exhaust_check loc tps (fun exprs -> tuple loc exprs)
+     | Ptyp_variant (row_fields, Closed, None) ->
+       List.fold_left row_fields ~init:[%expr []] ~f:(fun acc rf ->
+         list_append loc acc (variant_case ~exhaust_check loc rf ~main_type))
+     | Ptyp_var id -> evar ~loc (name_of_type_variable id)
+     | _ -> Location.raise_errorf ~loc "ppx_enumerate: unsupported type")
 
 and variant_case ~exhaust_check loc row_field ~main_type =
   match row_field.prf_desc with
