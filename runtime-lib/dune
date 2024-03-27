@@ -1,2 +1,5 @@
-(library (name ppx_enumerate_lib) (public_name ppx_enumerate.runtime-lib)
+(library
+ (modes :standard melange)
+ (name ppx_enumerate_lib)
+ (public_name ppx_enumerate.runtime-lib)
  (preprocess no_preprocessing))
