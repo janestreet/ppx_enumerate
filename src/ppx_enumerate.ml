@@ -236,7 +236,8 @@ and variant_case ~exhaust_check loc row_field ~main_type =
 and constructor_case ~exhaust_check loc cd =
   match cd.pcd_args with
   | Pcstr_tuple [] -> [%expr [ [%e econstruct cd None] ]]
-  | Pcstr_tuple tps ->
+  | Pcstr_tuple args ->
+    let tps = List.map args ~f:Ppxlib_jane.Shim.Pcstr_tuple_arg.to_core_type in
     product ~exhaust_check loc tps (fun x -> econstruct cd (Some (pexp_tuple ~loc x)))
   | Pcstr_record lds ->
     enum_of_lab_decs ~exhaust_check ~loc lds ~k:(fun x -> econstruct cd (Some x))
@@ -301,7 +302,7 @@ let enum_of_td ~exhaust_check td =
   let zero_args = List.length args = 0 in
   if zero_args (* constrain body rather than pattern *)
   then [%str let [%p pvar ~loc name] = ([%e body] : [%t enumeration_type])]
-  else [%str let ([%p pvar ~loc name] : [%t enumeration_type]) = [%e body]]
+  else [%str let [%p pvar ~loc name] : [%t enumeration_type] = [%e body]]
 ;;
 
 let enumerate =
@@ -312,12 +313,12 @@ let enumerate =
       (Deriving.Generator.make
          str_args
          (fun ~loc ~path:_ (_rec, tds) no_exhaustiveness_check ->
-         match tds with
-         | [ td ] -> enum_of_td ~exhaust_check:(not no_exhaustiveness_check) td
-         | _ ->
-           Location.raise_errorf
-             ~loc
-             "only one type at a time is support by ppx_enumerate"))
+            match tds with
+            | [ td ] -> enum_of_td ~exhaust_check:(not no_exhaustiveness_check) td
+            | _ ->
+              Location.raise_errorf
+                ~loc
+                "only one type at a time is support by ppx_enumerate"))
     ~sig_type_decl:(Deriving.Generator.make Deriving.Args.empty sig_of_tds)
 ;;
 
