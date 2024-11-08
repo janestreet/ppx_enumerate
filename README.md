@@ -106,6 +106,24 @@ type t =
   [@@deriving enumerate]
 ```
 
+Custom attribute
+----------------
+
+You can also override `all` for a type within a type definition using the
+`[@enumerate.custom]` attribute:
+
+```ocaml
+type t =
+  | Foo
+  | Bar of (string[@enumerate.custom [ "baz"; "qux" ]]) * bool
+```
+
+This can be useful in cases where you want to use `enumerate` to help exercise different
+codepaths based on which case you're in, but the contents are not enumerable. For example,
+your code may have different control flow based on whether a `string option` is `Some str`
+or `None`, but not have material changes based on the value of `str`, in which case you
+could use `(string [@enumerate.custom [ "example" ]]) option`.
+
 Using `all` without defining a type name
 ----------------------------------------
 

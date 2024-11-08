@@ -366,3 +366,30 @@ end = struct
 
   let%test _ = all_of_opaque all_of_x = [ None; Some `A; Some (`B A); Some (`B B) ]
 end
+
+type custom_record =
+  { foo : (int[@enumerate.custom [ 0 ]]) * t
+  ; bar : (string[@enumerate.custom [ "bar" ]])
+  ; baz : (string * int[@enumerate.custom [ "baz", 1 ]])
+  }
+[@@deriving enumerate]
+
+let%test _ =
+  all_of_custom_record
+  = [ { foo = 0, A; bar = "bar"; baz = "baz", 1 }
+    ; { foo = 0, B; bar = "bar"; baz = "baz", 1 }
+    ]
+;;
+
+type custom_variant =
+  | Foo of (int[@enumerate.custom [ 0 ]]) * t
+  | Bar of (string[@enumerate.custom [ "bar" ]])
+  | Baz of ((string * int)[@enumerate.custom [ "baz", 1 ]])
+[@@deriving enumerate]
+
+let%test _ = all_of_custom_variant = [ Foo (0, A); Foo (0, B); Bar "bar"; Baz ("baz", 1) ]
+
+let%test _ =
+  [%all: (string[@enumerate.custom [ "foo"; "bar" ]]) option]
+  = [ None; Some "foo"; Some "bar" ]
+;;
