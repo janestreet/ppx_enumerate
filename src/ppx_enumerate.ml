@@ -54,7 +54,7 @@ let apply e el = eapply ~loc:e.pexp_loc e el
 
 let labeled_tuple loc ltps exprs =
   let ltuple = List.map2_exn ~f:(fun (lbl, _) exp -> lbl, exp) ltps exprs in
-  Ppxlib_jane.Jane_syntax.Expression.expr_of ~loc ~attrs:[] (Jexp_tuple ltuple)
+  Ppxlib_jane.Ast_builder.Default.pexp_tuple ~loc ~attrs:[] ltuple
 ;;
 
 let replace_variables_by_underscores =
@@ -63,9 +63,11 @@ let replace_variables_by_underscores =
       inherit Ast_traverse.map as super
 
       method! core_type_desc ty =
-        match super#core_type_desc ty with
-        | Ptyp_var _ -> Ptyp_any
-        | ty -> ty
+        let ty = super#core_type_desc ty in
+        match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty with
+        | Ptyp_var (_, jkind) ->
+          Ppxlib_jane.Shim.Core_type_desc.to_parsetree (Ptyp_any jkind)
+        | _ -> ty
     end
   in
   map#core_type
@@ -193,14 +195,22 @@ let rec list_append loc l1 l2 =
      | _ -> [%expr Ppx_enumerate_lib.List.append [%e l1] [%e l2]])
 ;;
 
+let custom_attribute =
+  Attribute.declare
+    "enumerate.custom"
+    Attribute.Context.core_type
+    Ast_pattern.(pstr (pstr_eval __ nil ^:: nil))
+    Fn.id
+;;
+
 let rec enum ~exhaust_check ~main_type ty =
-  let loc = { ty.ptyp_loc with loc_ghost = true } in
-  match Ppxlib_jane.Jane_syntax.Core_type.of_ast ty with
-  | Some (Jtyp_tuple ltps, _attrs) ->
-    product ~exhaust_check loc (List.map ~f:snd ltps) (fun exprs ->
-      labeled_tuple loc ltps exprs)
-  | Some (Jtyp_layout _, _) | None ->
-    (match ty.ptyp_desc with
+  match Attribute.get custom_attribute ty with
+  | Some expr ->
+    let pexp_loc = { expr.pexp_loc with loc_ghost = true } in
+    { expr with pexp_loc }
+  | None ->
+    let loc = { ty.ptyp_loc with loc_ghost = true } in
+    (match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
      | Ptyp_constr ({ txt = Lident "bool"; _ }, []) -> [%expr [ false; true ]]
      | Ptyp_constr ({ txt = Lident "unit"; _ }, []) -> [%expr [ () ]]
      | Ptyp_constr ({ txt = Lident "option"; _ }, [ tp ]) ->
@@ -215,11 +225,13 @@ let rec enum ~exhaust_check ~main_type ty =
          id
          ~f:name_of_type_name
          (List.map args ~f:(fun t -> enum ~exhaust_check t ~main_type:t))
-     | Ptyp_tuple tps -> product ~exhaust_check loc tps (fun exprs -> tuple loc exprs)
+     | Ptyp_tuple ltps ->
+       product ~exhaust_check loc (List.map ~f:snd ltps) (fun exprs ->
+         labeled_tuple loc ltps exprs)
      | Ptyp_variant (row_fields, Closed, None) ->
        List.fold_left row_fields ~init:[%expr []] ~f:(fun acc rf ->
          list_append loc acc (variant_case ~exhaust_check loc rf ~main_type))
-     | Ptyp_var id -> evar ~loc (name_of_type_variable id)
+     | Ptyp_var (id, _) -> evar ~loc (name_of_type_variable id)
      | _ -> Location.raise_errorf ~loc "ppx_enumerate: unsupported type")
 
 and variant_case ~exhaust_check loc row_field ~main_type =
@@ -253,7 +265,7 @@ and enum_of_lab_decs ~exhaust_check ~loc lds ~k =
     in
     k (pexp_record ~loc fields None))
 
-and product ~exhaust_check loc tps f =
+and product ~exhaust_check loc (tps : core_type list) f =
   let all = List.map tps ~f:(fun tp -> enum ~exhaust_check ~main_type:tp tp) in
   cartesian_product_map ~exhaust_check all loc ~f
 ;;
