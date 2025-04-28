@@ -1,4 +1,4 @@
-open Base
+open Stdppx
 open Ppxlib
 open Ast_builder.Default
 
@@ -21,21 +21,32 @@ let enumeration_type_of_td td =
     [%type: [%t tp] list -> [%t acc]])
 ;;
 
-let sig_of_td td =
+let sig_of_td td ~portable =
   let td = name_type_params_in_td td in
   let enumeration_type = enumeration_type_of_td td in
   let name = name_of_type_name td.ptype_name.txt in
   let loc = td.ptype_loc in
   psig_value
     ~loc
-    (value_description ~loc ~name:(Located.mk ~loc name) ~type_:enumeration_type ~prim:[])
+    (Ppxlib_jane.Ast_builder.Default.value_description
+       ~loc
+       ~name:(Located.mk ~loc name)
+       ~type_:enumeration_type
+       ~modalities:(if portable then [ Ppxlib_jane.Modality "portable" ] else [])
+       ~prim:[])
 ;;
 
-let sig_of_tds ~loc ~path:_ (_rec_flag, tds) =
+let sig_of_tds ~loc ~path:_ (_rec_flag, tds) ~portable =
   let sg_name = "Ppx_enumerate_lib.Enumerable.S" in
   match mk_named_sig tds ~loc ~sg_name ~handle_polymorphic_variant:true with
-  | Some include_infos -> [ psig_include ~loc include_infos ]
-  | None -> List.map tds ~f:sig_of_td
+  | Some include_infos ->
+    [ Ppxlib_jane.Ast_builder.Default.psig_include
+        ~loc
+        ~modalities:
+          (if portable then [ Loc.make ~loc (Ppxlib_jane.Modality "portable") ] else [])
+        include_infos
+    ]
+  | None -> List.map tds ~f:(sig_of_td ~portable)
 ;;
 
 let gen_symbol = gen_symbol ~prefix:"enumerate"
@@ -53,7 +64,7 @@ let patt_tuple loc pats =
 let apply e el = eapply ~loc:e.pexp_loc e el
 
 let labeled_tuple loc ltps exprs =
-  let ltuple = List.map2_exn ~f:(fun (lbl, _) exp -> lbl, exp) ltps exprs in
+  let ltuple = List.map2 ~f:(fun (lbl, _) exp -> lbl, exp) ltps exprs in
   Ppxlib_jane.Ast_builder.Default.pexp_tuple ~loc ~attrs:[] ltuple
 ;;
 
@@ -104,7 +115,7 @@ let cartesian_product_map ~exhaust_check l's ~f loc =
       let tl_var = gen_symbol () in
       let base_case =
         let patts =
-          List.rev ([%pat? []] :: List.init (len - 1) ~f:(fun _ -> [%pat? _]))
+          List.rev ([%pat? []] :: List.init ~len:(len - 1) ~f:(fun _ -> [%pat? _]))
         in
         case
           ~guard:None
@@ -123,14 +134,14 @@ let cartesian_product_map ~exhaust_check l's ~f loc =
           ~rhs:
             (apply
                [%expr loop ([%e f (List.map hd_vars ~f:lid)] :: acc)]
-               (evar ~loc tl_var :: List.map (List.tl_exn args_vars) ~f:lid))
+               (evar ~loc tl_var :: List.map (List.tl args_vars) ~f:lid))
       in
       let decrement_cases =
-        List.init (len - 1) ~f:(fun i ->
+        List.init ~len:(len - 1) ~f:(fun i ->
           let patts =
-            List.init i ~f:(fun _ -> ppat_any ~loc)
+            List.init ~len:i ~f:(fun _ -> ppat_any ~loc)
             @ [ [%pat? []]; [%pat? _ :: [%p pvar ~loc tl_var]] ]
-            @ List.init (len - i - 2) ~f:(fun _ -> ppat_any ~loc)
+            @ List.init ~len:(len - i - 2) ~f:(fun _ -> ppat_any ~loc)
           in
           case
             ~guard:None
@@ -138,8 +149,11 @@ let cartesian_product_map ~exhaust_check l's ~f loc =
             ~rhs:
               (apply
                  [%expr loop acc]
-                 (List.map ~f:lid (List.take alias_vars (i + 1))
-                  @ (evar ~loc tl_var :: List.map ~f:lid (List.drop args_vars (i + 2))))))
+                 (List.map ~f:lid (List.filteri alias_vars ~f:(fun j _ -> j < i + 1))
+                  @ (evar ~loc tl_var
+                     :: List.map
+                          ~f:lid
+                          (List.filteri args_vars ~f:(fun j _ -> j >= i + 2))))))
       in
       let decrement_cases =
         if exhaust_check
@@ -256,12 +270,12 @@ and constructor_case ~exhaust_check loc cd =
 
 and enum_of_lab_decs ~exhaust_check ~loc lds ~k =
   let field_names, types =
-    List.unzip (List.map lds ~f:(fun ld -> ld.pld_name, ld.pld_type))
+    let list = List.map lds ~f:(fun ld -> ld.pld_name, ld.pld_type) in
+    List.map list ~f:fst, List.map list ~f:snd
   in
   product ~exhaust_check loc types (function l ->
     let fields =
-      List.map2_exn field_names l ~f:(fun field_name x ->
-        Located.map lident field_name, x)
+      List.map2 field_names l ~f:(fun field_name x -> Located.map lident field_name, x)
     in
     k (pexp_record ~loc fields None))
 
@@ -286,13 +300,15 @@ let enum_of_td ~exhaust_check td =
         (Located.map lident td.ptype_name)
         (List.map td.ptype_params ~f:(fun _ -> ptyp_any ~loc))
     in
-    match td.ptype_kind with
+    match Ppxlib_jane.Shim.Type_kind.of_parsetree td.ptype_kind with
     | Ptype_variant cds ->
       (* Process [cd] elements in same order as camlp4 to avoid code-gen diffs caused by
          different order of [gen_symbol] calls *)
       List.fold_left cds ~init:[%expr []] ~f:(fun acc cd ->
         list_append loc acc (constructor_case ~exhaust_check loc cd))
     | Ptype_record lds -> enum_of_lab_decs ~exhaust_check ~loc lds ~k:(fun x -> x)
+    | Ptype_record_unboxed_product _ ->
+      Location.raise_errorf ~loc "ppx_enumerate: unboxed record types not supported"
     | Ptype_open -> Location.raise_errorf ~loc "ppx_enumerate: open types not supported"
     | Ptype_abstract ->
       (match td.ptype_manifest with
@@ -331,7 +347,10 @@ let enumerate =
               Location.raise_errorf
                 ~loc
                 "only one type at a time is support by ppx_enumerate"))
-    ~sig_type_decl:(Deriving.Generator.make Deriving.Args.empty sig_of_tds)
+    ~sig_type_decl:
+      (Deriving.Generator.make
+         Deriving.Args.(empty +> flag "portable")
+         (fun ~loc ~path tds portable -> sig_of_tds ~loc ~path tds ~portable))
 ;;
 
 let () =

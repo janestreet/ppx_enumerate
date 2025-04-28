@@ -267,6 +267,37 @@ module Check_sigs = struct
     let module _ : S1 = M in
     ()
   ;;
+
+  module type S3 = sig
+    type t =
+      | C
+      | D
+    [@@deriving_inline enumerate ~portable]
+
+    include sig
+      [@@@ocaml.warning "-32"]
+
+      include Ppx_enumerate_lib.Enumerable.S with type t := t
+    end
+    [@@ocaml.doc "@inline"]
+
+    [@@@end]
+  end
+
+  module type S4 = sig
+    type t =
+      | C
+      | D
+
+    val all : t list
+  end
+
+  let _ =
+    fun (module M : S3) ->
+    let module M : S4 = M in
+    let module _ : S3 = M in
+    ()
+  ;;
 end
 
 module Check_sigs_with_params_and_variance = struct
@@ -274,7 +305,16 @@ module Check_sigs_with_params_and_variance = struct
     type (+'a, 'b) t =
       | A of 'a
       | B of 'b
-    [@@deriving enumerate]
+    [@@deriving_inline enumerate]
+
+    include sig
+      [@@@ocaml.warning "-32"]
+
+      include Ppx_enumerate_lib.Enumerable.S2 with type (+'a, 'b) t := ('a, 'b) t
+    end
+    [@@ocaml.doc "@inline"]
+
+    [@@@end]
   end
 
   module type S2 = sig
@@ -289,6 +329,37 @@ module Check_sigs_with_params_and_variance = struct
     fun (module M : S1) ->
     let module M : S2 = M in
     let module _ : S1 = M in
+    ()
+  ;;
+
+  module type S3 = sig
+    type (+'c, 'd) t =
+      | C of 'c
+      | D of 'd
+    [@@deriving_inline enumerate ~portable]
+
+    include sig
+      [@@@ocaml.warning "-32"]
+
+      include Ppx_enumerate_lib.Enumerable.S2 with type (+'c, 'd) t := ('c, 'd) t
+    end
+    [@@ocaml.doc "@inline"]
+
+    [@@@end]
+  end
+
+  module type S4 = sig
+    type ('c, +'d) t =
+      | C of 'c
+      | D of 'd
+
+    val all : 'c list -> 'd list -> ('c, 'd) t list
+  end
+
+  let _ =
+    fun (module M : S3) ->
+    let module M : S4 = M in
+    let module _ : S3 = M in
     ()
   ;;
 end
