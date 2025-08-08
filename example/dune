@@ -4,5 +4,5 @@
   (pps ppx_jane)))
 
 (alias
- (name DEFAULT)
+ (name default)
  (deps test.ml.pp))
