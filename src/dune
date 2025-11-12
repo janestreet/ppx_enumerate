@@ -2,7 +2,7 @@
  (name ppx_enumerate)
  (public_name ppx_enumerate)
  (kind ppx_deriver)
- (libraries ppxlib.stdppx ppxlib ppxlib_jane compiler-libs.common)
+ (libraries compiler-libs.common ppxlib ppxlib_jane ppxlib.stdppx)
  (ppx_runtime_libraries ppx_enumerate.runtime-lib)
  (preprocess
   (pps ppxlib.metaquot)))

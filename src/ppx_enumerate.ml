@@ -32,7 +32,7 @@ let sig_of_td td ~portable =
        ~loc
        ~name:(Located.mk ~loc name)
        ~type_:enumeration_type
-       ~modalities:(if portable then [ Ppxlib_jane.Modality "portable" ] else [])
+       ~modalities:(if portable then Ppxlib_jane.Shim.Modalities.portable ~loc else [])
        ~prim:[])
 ;;
 
