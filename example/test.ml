@@ -1,3 +1,5 @@
+open Ppx_enumerate_lib.Export
+
 type t =
   | A
   | B
