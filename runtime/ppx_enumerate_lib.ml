@@ -1,3 +1,4 @@
+module Export = Export
 module List = List
 
 module Enumerable = struct

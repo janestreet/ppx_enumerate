@@ -224,14 +224,6 @@ let rec enum ~exhaust_check ~main_type ty =
   | None ->
     let loc = { ty.ptyp_loc with loc_ghost = true } in
     (match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
-     | Ptyp_constr ({ txt = Lident "bool"; _ }, []) -> [%expr [ false; true ]]
-     | Ptyp_constr ({ txt = Lident "unit"; _ }, []) -> [%expr [ () ]]
-     | Ptyp_constr ({ txt = Lident "option"; _ }, [ tp ]) ->
-       [%expr
-         None
-         :: [%e
-              list_map loc (enum ~exhaust_check ~main_type:tp tp) ~f:(fun e ->
-                [%expr Some [%e e]])]]
      | Ptyp_constr (id, args) ->
        type_constr_conv
          ~loc
